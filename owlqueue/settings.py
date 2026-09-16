@@ -10,22 +10,41 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local environment overrides. .env.local is git-ignored and takes
+# precedence; see .env.example for the full list of supported variables.
+load_dotenv(BASE_DIR / '.env.local')
+load_dotenv(BASE_DIR / '.env')
+
+
+def env_bool(name, default=False):
+    return os.getenv(name, str(default)).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def env_list(name, default=''):
+    return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--gmq=(8=vak^f#9den^^8d=jvr_tzffy+_c1gic$3o&bvfdq0m'
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure--gmq=(8=vak^f#9den^^8d=jvr_tzffy+_c1gic$3o&bvfdq0m',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
 
 
 # Application definition
@@ -73,9 +92,20 @@ WSGI_APPLICATION = 'owlqueue.wsgi.application'
 
 ASGI_APPLICATION = "owlqueue.asgi.application"
 
-CHANNEL_LAYERS = {
-    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
-}
+# In-memory works for a single dev process; set CHANNEL_LAYER_REDIS_URL in
+# .env.local to share the queue across processes.
+_redis_url = os.getenv('CHANNEL_LAYER_REDIS_URL', '').strip()
+if _redis_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [_redis_url]},
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }
 
 
 # Database
@@ -134,3 +164,11 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Discord bot
+# Values come from .env.local; blank means the bot integration is disabled.
+
+DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN', '')
+
+DISCORD_GUILD_ID = os.getenv('DISCORD_GUILD_ID', '')
