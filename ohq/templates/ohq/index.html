@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>OwlQueue</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>OwlQueue</h1>
+  <p>Open this page in two tabs. Join from one and the other updates live.</p>
+
+  <form id="join-form">
+    <input id="name" placeholder="Your name" required>
+    <input id="question" placeholder="What do you need help with?" size="40" required>
+    <button>Join queue</button>
+  </form>
+
+  <h2>Queue</h2>
+  <ol id="queue"></ol>
+  <button id="next">TA: help next student</button>
+
+  <script>
+    const list = document.getElementById("queue");
+    const socket = new WebSocket("ws://" + window.location.host + "/ws/queue/");
+
+    socket.onmessage = function (e) {
+      const data = JSON.parse(e.data);
+      list.innerHTML = data.queue
+        .map(entry => `<li>${entry.name} — ${entry.question}</li>`)
+        .join("");
+    };
+
+    document.getElementById("join-form").onsubmit = function (e) {
+      e.preventDefault();
+      socket.send(JSON.stringify({
+        action: "join",
+        name: document.getElementById("name").value,
+        question: document.getElementById("question").value,
+      }));
+      document.getElementById("question").value = "";
+    };
+
+    document.getElementById("next").onclick = function () {
+      socket.send(JSON.stringify({ action: "next" }));
+    };
+  </script>
+</body>
+</html>
